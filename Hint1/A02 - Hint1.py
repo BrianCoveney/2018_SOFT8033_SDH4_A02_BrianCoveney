@@ -60,7 +60,8 @@ def aggregate_info(x):
 
 
 # ------------------------------------------
-# FUNCTION remove_info(x, avgReviews, percentage_f)
+# FUNCTION remove_info
+# Remove entries that do not satisfy conditions
 # ------------------------------------------
 def remove_info(x, avgReviews, percentage_f):
     total_reviews, total_neg_reviews = x[1][0], x[1][1]
@@ -70,6 +71,11 @@ def remove_info(x, avgReviews, percentage_f):
         return True
 
 
+# ------------------------------------------
+# FUNCTION aggregate_info(x)
+#  Aggregate info per type of cuisine, incl avg points
+#  (u'Hamburgers', (1676, 107, 11190, 6.676610978520286))
+# ------------------------------------------
 def aggregate_avg_points(x):
     cuisine, total_reviews, total_neg_reviews, points = x[0], x[1][0], x[1][1], x[1][2]
     avg_points_per_review = get_avg(points, total_reviews)
