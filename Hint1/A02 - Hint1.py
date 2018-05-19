@@ -37,8 +37,8 @@ def process_items(x):
 
 # ------------------------------------------
 # FUNCTION aggregate_info(x)
-# Point 1. Aggregate info per type of cuisine
-#          Example: (u'Donuts', (16, 0, 137))
+# Aggregate info per type of cuisine
+# Example: (u'Donuts', (16, 0, 137))
 # ------------------------------------------
 def aggregate_info(x):
     cuisine, reviews = x[0], x[1]
@@ -74,7 +74,7 @@ def remove_info(x, avgReviews, percentage_f):
 # ------------------------------------------
 # FUNCTION aggregate_info(x)
 #  Aggregate info per type of cuisine, incl avg points
-#  (u'Hamburgers', (1676, 107, 11190, 6.676610978520286))
+#  Example: (u'Hamburgers', (1676, 107, 11190, 6.676610978520286))
 # ------------------------------------------
 def aggregate_avg_points(x):
     cuisine, total_reviews, total_neg_reviews, points = x[0], x[1][0], x[1][1], x[1][2]
