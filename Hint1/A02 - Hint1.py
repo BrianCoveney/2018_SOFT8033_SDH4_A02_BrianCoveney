@@ -21,8 +21,6 @@ def print_rdd(my_rdd):
     for item in my_rdd.take(4):
         print(item)
 
-    # ------------------------------------------
-
 
 # FUNCTION get_avg
 # ------------------------------------------
@@ -109,17 +107,14 @@ def my_main(dataset_dir, result_dir, percentage_f):
     groupByKeyRDD = processItemsRDD.groupBy(lambda x: x[0])
 
     aggRDD = groupByKeyRDD.map(lambda x: aggregate_info(x))
-    # print_rdd(aggRDD)
 
     # Point 2 ------------------------------------------
     #
     avgReviews = get_avg(mapRDD.count(), aggRDD.count())
-    # print(avgReviews)
 
     # Point 3 ------------------------------------------
     #
     removedEntriesRDD = aggRDD.filter(lambda x: remove_info(x, avgReviews, percentage_f))
-    # print_rdd(removedEntriesRDD)
 
     # Point 4 ------------------------------------------
     #
@@ -146,7 +141,3 @@ if __name__ == '__main__':
     dbutils.fs.rm(result_dir, True)
 
     my_main(source_dir, result_dir, percentage_f)
-
-
-
-
