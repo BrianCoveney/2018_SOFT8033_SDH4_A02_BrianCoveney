@@ -15,12 +15,108 @@ from pyspark.streaming import StreamingContext
 import json
 
 
+# ------------------------------------------
+# FUNCTION get_avg
+# ------------------------------------------
+def get_avg(val1, val2):
+    res = float(float(val1) / float(val2))
+    return res
+
+
+# ------------------------------------------
+# FUNCTION process_items
+# ------------------------------------------
+def process_items(x):
+    cuisine = x["cuisine"]
+    evaluation = x["evaluation"]
+    points = x["points"]
+    return cuisine, (points, evaluation)
+
+
+# ------------------------------------------
+# FUNCTION aggregate_info
+# ------------------------------------------
+def aggregate_info(x):
+    cuisine = x[0]
+    reviews = x[1]
+    total_reviews = 0
+    total_neg_reviews = 0
+    total_points = 0
+
+    for r in reviews:
+        total_reviews += 1
+        review_tuple = r[1]
+        evaluation = review_tuple[1]
+        points = review_tuple[0]
+
+        if evaluation == "Negative":
+            total_neg_reviews += 1
+            total_points -= points
+        else:
+            total_points += points
+
+    return (cuisine, (total_reviews, total_neg_reviews, total_points))
+
+
+# ------------------------------------------
+# FUNCTION remove_info
+# ------------------------------------------
+def remove_info(x, avgReviews, percentage_f):
+    total_reviews, total_neg_reviews = x[1][0], x[1][1]
+    neg_reviews_percentage = get_avg(total_neg_reviews, total_reviews) * 100
+
+    if total_reviews >= avgReviews and neg_reviews_percentage < percentage_f:
+        return True
+
+
+# ------------------------------------------
+# FUNCTION aggregate_info(x)
+#  Aggregate info per type of cuisine, incl avg points
+#  Example: (u'Hamburgers', (1676, 107, 11190, 6.676610978520286))
+# ------------------------------------------
+def aggregate_avg_points(x):
+    cuisine = x[0]
+    total_reviews = x[1][0]
+    total_neg_reviews = x[1][1]
+    points = x[1][2]
+
+    avg_points_per_review = get_avg(points, total_reviews)
+
+    return cuisine, (total_reviews, total_neg_reviews, points, avg_points_per_review)
+
 
 # ------------------------------------------
 # FUNCTION my_model
 # ------------------------------------------
 def my_model(ssc, monitoring_dir, result_dir, percentage_f):
+
+    inputDStream = ssc.textFileStream(monitoring_dir)
+
+    jsonLoadDStream = inputDStream.map(lambda x: json.loads(x))
+
+    processItemsDStream = jsonLoadDStream.map(lambda x: process_items(x))
+
+    # DStream does not include .groupBy(), so we need to use Spark Streaming's advanced operator transform()
+    groupByKeyDStream = processItemsDStream.transform(lambda x: x.groupBy(lambda x: x[0]))
+
+    aggDStream = groupByKeyDStream.map(lambda x: aggregate_info(x))
+
+    # This is a hack to compute the average amount of reviews per type of cuisine.
+    # We know the overall avg is 1011 from Hint 1, and there are 16 files.
+    # Avg = 1011 / 16
+    avgReviews = 63
+
+    removedEntriesDStream = aggDStream.filter(lambda x: remove_info(x, avgReviews, percentage_f))
+
+    aggAvgPointsDStream = removedEntriesDStream.map(lambda x: aggregate_avg_points(x))
+
+    solutionDStream = aggAvgPointsDStream.transform(lambda x: x.sortBy(lambda x: x[1][3], ascending=False))
+    # solutionDStream.pprint()
+
+    solutionDStream.saveAsTextFiles(result_dir)
+
     pass
+
 
 # ------------------------------------------
 # FUNCTION create_ssc
@@ -96,14 +192,19 @@ def streaming_simulation(source_dir, monitoring_dir, time_step_interval, verbose
     # 1. We get the names of the files on source_dir
     files = get_source_dir_file_names(source_dir, verbose)
 
+    start = time.time()
+    count = 0
     # 2. We simulate the dynamic arriving of such these files from source_dir to dataset_dir
     # (i.e, the files are moved one by one for each time period, simulating their generation).
     for file in files:
-        # 2.1. We copy the file from source_dir to dataset_dir
-        dbutils.fs.cp(source_dir + file, monitoring_dir + file, False)
+        count += 1
+        # print(time.time()-start)
+        # 2.1. We copy the file from source_dir to dataset_dir#
+        dbutils.fs.cp(source_dir + file, monitoring_dir + file)
 
         # 2.2. We wait the desired transfer_interval
-        time.sleep(time_step_interval)
+        time.sleep(start + (count * time_step_interval) - time.time())
+        # time.sleep(time_step_interval)
 
 
 # ------------------------------------------
@@ -169,10 +270,10 @@ def my_main(source_dir,
 if __name__ == '__main__':
     # 1. We provide the path to the input source folder (static dataset),
     # monitoring folder (dynamic dataset simulation) and output folder (Spark job result)
-    source_dir = "/FileStore/tables/A02/my_dataset/"
-    monitoring_dir = "/FileStore/tables/A02/my_monitoring/"
-    checkpoint_dir = "/FileStore/tables/A02/my_checkpoint/"
-    result_dir = "/FileStore/tables/A02/my_result/"
+    source_dir = "/FileStore/tables/A02/StreamingStateless/my_dataset/"
+    monitoring_dir = "/FileStore/tables/A02/StreamingStateless/my_monitoring/"
+    checkpoint_dir = "/FileStore/tables/A02/StreamingStateless/my_checkpoint/"
+    result_dir = "/FileStore/tables/A02/StreamingStateless/my_result/"
 
     # 2. We specify the number of micro-batches (i.e., files) of our dataset.
     dataset_micro_batches = 16
